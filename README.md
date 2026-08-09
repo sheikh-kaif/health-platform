@@ -104,7 +104,7 @@ npm run dev                 # starts on http://localhost:5173
 
 ## Deployment (as scoped in the brief)
 
-- Frontend → Vercel (`npm run build`, output in `frontend/dist`)
-- Backend → Render or AWS (set the same env vars as `.env.example`)
+- Frontend → Vercel
+- Backend → Render 
 - Database → MongoDB Atlas
-- File storage → Cloudinary (already wired) or swap for AWS S3
+- File storage → Cloudinary 
