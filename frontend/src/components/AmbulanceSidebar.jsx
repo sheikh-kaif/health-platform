@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import {
@@ -8,6 +9,8 @@ import {
   IconLogout,
   IconShield,
   IconHeadset,
+  IconMenu,
+  IconChevronDown,
 } from "./SidebarIcons";
 
 const NAV_ITEMS = [
@@ -35,15 +38,45 @@ const NAV_ITEMS = [
 export default function AmbulanceSidebar({ active }) {
   const { logout } = useAuth();
   const navigate = useNavigate();
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   const handleLogout = () => {
     logout();
     navigate("/login");
   };
 
+  const activeLabel =
+    NAV_ITEMS.find((item) => item.key === active)?.label ?? "Menu";
+
   return (
-    <aside className="flex w-full shrink-0 flex-col gap-6 md:w-64">
-      <nav className="flex flex-col gap-1 rounded-xl border border-ink-200 bg-surface p-2">
+    <aside className="relative flex w-full shrink-0 flex-col gap-6 md:w-64">
+      <button
+        type="button"
+        onClick={() => setMobileOpen((v) => !v)}
+        aria-expanded={mobileOpen}
+        className="flex items-center justify-between rounded-xl border border-ink-200 bg-surface px-4 py-3 md:hidden"
+      >
+        <span className="flex items-center gap-2 text-sm font-medium text-ink-800">
+          <IconMenu className="shrink-0" />
+          {activeLabel}
+        </span>
+        <IconChevronDown
+          className={`shrink-0 transition-transform ${mobileOpen ? "rotate-180" : ""}`}
+        />
+      </button>
+
+      {mobileOpen && (
+        <button
+          type="button"
+          aria-label="Close menu"
+          onClick={() => setMobileOpen(false)}
+          className="fixed inset-0 z-30 bg-ink-900/30 md:hidden"
+        />
+      )}
+
+      <nav
+        className={`${mobileOpen ? "flex" : "hidden"} absolute inset-x-0 top-14 z-40 max-h-[70vh] flex-col gap-1 overflow-y-auto rounded-xl border border-ink-200 bg-surface p-2 shadow-lg md:static md:z-auto md:flex md:max-h-none md:shadow-none`}
+      >
         {NAV_ITEMS.map((item) => {
           const isActive = item.key === active;
           const Icon = item.icon;
@@ -52,6 +85,7 @@ export default function AmbulanceSidebar({ active }) {
             <Link
               key={item.key}
               to={item.to}
+              onClick={() => setMobileOpen(false)}
               className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
                 isActive
                   ? "bg-brand-50 text-brand-700"

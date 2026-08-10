@@ -19,7 +19,11 @@ function initSocket(server) {
     .split(",")
     .map((s) => s.trim())
     .filter(Boolean);
-  const localDevOrigins = ["http://localhost:5173", "http://127.0.0.1:5173"];
+  const localDevOrigins = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "https://health-platform-gray.vercel.app",
+  ];
   const allowedOrigins = [
     ...new Set([...configuredOrigins, ...localDevOrigins]),
   ];
