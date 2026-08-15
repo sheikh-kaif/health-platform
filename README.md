@@ -45,7 +45,7 @@ Set `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, and optionally
 backend logs the reset/verification link to the server console instead —
 convenient for local development, but configure real SMTP before deploying.
 
-## Not implemented yet (see "Future Features" in the original brief)
+## Not implemented yet
 
 AI-based disease detection, disease prediction/outbreak analysis, medicine
 recommendation, telemedicine/video calls, real-time push notifications
@@ -65,11 +65,6 @@ npm run seed:admin        # creates the first admin account from .env
 npm run dev                # starts on http://localhost:5000
 ```
 
-You'll need a MongoDB instance — local (`mongodb://127.0.0.1:27017/...`) or
-a free Atlas cluster. File uploads need a free Cloudinary account (cloud
-name, API key, API secret) — swap `config/cloudinary.js` for an S3 client
-later if you prefer AWS.
-
 ### Frontend
 
 ```bash
@@ -79,17 +74,7 @@ npm install
 npm run dev                 # starts on http://localhost:5173
 ```
 
-## Trying it out
 
-1. Seed an admin (`npm run seed:admin` in `backend/`), then log in as admin.
-2. Sign up a doctor from the frontend — their account stays locked until
-   you approve them from **Admin → Doctor verification**.
-3. Sign up a patient — note the Patient ID shown after signup.
-4. Log in as the doctor, look up the patient by their Patient ID, add a
-   visit record with a diagnosis and medicines.
-5. Log in as the patient to see the visit in their history; book an
-   appointment with any verified doctor.
-6. Check **Admin → Analytics** to see the aggregated stats update.
 
 ## Notes on the RBAC design
 
@@ -102,7 +87,7 @@ npm run dev                 # starts on http://localhost:5173
 - Doctors can't log in at all until `verificationStatus` is `"verified"`
   — enforced server-side in the login controller, not just hidden in the UI.
 
-## Deployment (as scoped in the brief)
+## Deployment 
 
 - Frontend → Vercel
 - Backend → Render 
