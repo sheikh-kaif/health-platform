@@ -1,5 +1,7 @@
 const express = require("express");
 const {
+  getMySchedule,
+  updateMySchedule,
   findPatientById,
   getPatientHistory,
   addMedicalRecord,
@@ -23,6 +25,9 @@ router.get("/patients/:patientId/records", getPatientHistory);
 router.post("/patients/:patientId/records", addMedicalRecord);
 router.patch("/patients/:patientId/medical-info", updatePatientMedicalInfo);
 router.post("/records/:recordId/attachments", upload.single("file"), addAttachment);
+
+router.get("/me/schedule", getMySchedule);
+router.patch("/me/schedule", updateMySchedule);
 
 router.get("/me/appointments", getMyAppointments);
 router.patch("/me/appointments/:id", updateAppointmentStatus);

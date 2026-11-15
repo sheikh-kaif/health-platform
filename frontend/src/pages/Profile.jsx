@@ -7,6 +7,7 @@ import PatientSidebar from "../components/PatientSidebar";
 import DoctorSidebar from "../components/DoctorSidebar";
 import AmbulanceSidebar from "../components/AmbulanceSidebar";
 import PasswordInput from "../components/PasswordInput";
+import ScheduleEditor from "../components/ScheduleEditor";
 import {
   IconCamera,
   IconClipboard,
@@ -15,7 +16,7 @@ import {
 } from "../components/SidebarIcons";
 import { SkeletonBlock, SkeletonText } from "../components/Skeleton";
 
-const TABS = [
+const BASE_TABS = [
   { key: "overview", label: "My details" },
   { key: "password", label: "Change password" },
   { key: "verify", label: "Verify email" },
@@ -30,6 +31,16 @@ export default function Profile() {
     resendVerification,
   } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
+
+  const TABS =
+    user?.role === "doctor"
+      ? [
+          BASE_TABS[0],
+          { key: "schedule", label: "Schedule" },
+          ...BASE_TABS.slice(1),
+        ]
+      : BASE_TABS;
+
   const initialTab = searchParams.get("tab") || "overview";
   const [tab, setTab] = useState(
     TABS.some((t) => t.key === initialTab) ? initialTab : "overview",
@@ -637,6 +648,7 @@ export default function Profile() {
             </div>
           )}
 
+          {tab === "schedule" && isDoctor && <ScheduleEditor />}
           {tab === "password" && passwordForm_}
           {tab === "verify" && verifyPanel}
         </div>

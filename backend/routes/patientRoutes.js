@@ -4,6 +4,7 @@ const {
   getMyRecordById,
   updateMyProfile,
   listDoctors,
+  getDoctorAvailability,
   bookAppointment,
   getMyAppointments,
   cancelMyAppointment,
@@ -22,6 +23,7 @@ router.get("/me/records", getMyRecords);
 router.get("/me/records/:id", getMyRecordById);
 router.put("/me", updateMyProfile);
 router.get("/doctors", listDoctors);
+router.get("/doctors/:doctorId/availability", getDoctorAvailability);
 router.post("/me/appointments", bookAppointment);
 router.get("/me/appointments", getMyAppointments);
 router.patch("/me/appointments/:id/cancel", cancelMyAppointment);

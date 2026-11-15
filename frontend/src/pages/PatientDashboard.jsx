@@ -3,6 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import client from "../api/client";
 import ContactAdminForm from "../components/ContactAdminForm";
 import DoctorSearchSelect from "../components/DoctorSearchSelect";
+import SlotPicker from "../components/SlotPicker";
 import PatientSidebar from "../components/PatientSidebar";
 import PrescriptionActions from "../components/PrescriptionActions";
 import { BarChart, DonutChart } from "../components/Charts";
@@ -49,7 +50,8 @@ export default function PatientDashboard() {
   const [doctors, setDoctors] = useState([]);
   const [bookingForm, setBookingForm] = useState({
     doctorId: "",
-    requestedDate: "",
+    date: "",
+    requestedDate: "", // ISO datetime of the chosen slot, set via SlotPicker
     reason: "",
   });
   const [loading, setLoading] = useState(true);
@@ -133,13 +135,34 @@ export default function PatientDashboard() {
       if (sharingIdRef.current === requestId) stopSharingMyLocation();
     };
 
+    const onAppointmentCancelled = ({ appointmentId }) => {
+      setAppointments((prev) =>
+        prev.map((a) =>
+          a._id === appointmentId
+            ? {
+                ...a,
+                status: "cancelled",
+                cancellationReason:
+                  a.cancellationReason ||
+                  "The doctor updated their schedule and this time is no longer available.",
+              }
+            : a,
+        ),
+      );
+      setMessage(
+        "One of your appointments was cancelled because the doctor updated their schedule. Please book a new slot.",
+      );
+    };
+
     socket.on("ambulance:accepted", onAccepted);
     socket.on("ambulance:location", onLocation);
     socket.on("ambulance:completed", onCompleted);
+    socket.on("appointment:cancelled", onAppointmentCancelled);
     return () => {
       socket.off("ambulance:accepted", onAccepted);
       socket.off("ambulance:location", onLocation);
       socket.off("ambulance:completed", onCompleted);
+      socket.off("appointment:cancelled", onAppointmentCancelled);
     };
   }, []);
 
@@ -300,13 +323,24 @@ export default function PatientDashboard() {
       setMessage("Please select a doctor.");
       return;
     }
+    if (!bookingForm.requestedDate) {
+      setMessage("Please pick an available time slot.");
+      return;
+    }
     try {
-      await client.post("/patients/me/appointments", bookingForm);
+      await client.post("/patients/me/appointments", {
+        doctorId: bookingForm.doctorId,
+        requestedDate: bookingForm.requestedDate,
+        reason: bookingForm.reason,
+      });
       setMessage("Appointment requested.");
-      setBookingForm({ doctorId: "", requestedDate: "", reason: "" });
+      setBookingForm({ doctorId: "", date: "", requestedDate: "", reason: "" });
       loadAll();
     } catch (err) {
       setMessage(err.response?.data?.message || "Booking failed");
+      // The slot may have just been taken by someone else — refresh the
+      // picker by clearing the chosen slot so they pick again.
+      setBookingForm((f) => ({ ...f, requestedDate: "" }));
     }
   };
 
@@ -544,25 +578,46 @@ export default function PatientDashboard() {
                     doctors={doctors}
                     value={bookingForm.doctorId}
                     onChange={(doctorId) =>
-                      setBookingForm({ ...bookingForm, doctorId })
+                      setBookingForm({
+                        ...bookingForm,
+                        doctorId,
+                        date: "",
+                        requestedDate: "",
+                      })
                     }
                     placeholder="Search by name or registration no."
                   />
                 </div>
                 <div>
                   <label className="mb-1 block text-sm font-medium text-ink-800">
-                    Preferred date/time
+                    Date
                   </label>
                   <input
-                    type="datetime-local"
+                    type="date"
                     required
-                    className="w-full rounded-md border border-ink-200 px-3 py-2 text-sm"
-                    value={bookingForm.requestedDate}
+                    min={new Date().toISOString().slice(0, 10)}
+                    disabled={!bookingForm.doctorId}
+                    className="w-full rounded-md border border-ink-200 px-3 py-2 text-sm disabled:bg-ink-50 disabled:text-ink-300"
+                    value={bookingForm.date}
                     onChange={(e) =>
                       setBookingForm({
                         ...bookingForm,
-                        requestedDate: e.target.value,
+                        date: e.target.value,
+                        requestedDate: "",
                       })
+                    }
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-ink-800">
+                    Available time slots
+                  </label>
+                  <SlotPicker
+                    doctorId={bookingForm.doctorId}
+                    date={bookingForm.date}
+                    value={bookingForm.requestedDate}
+                    onChange={(iso) =>
+                      setBookingForm({ ...bookingForm, requestedDate: iso })
                     }
                   />
                 </div>
@@ -581,7 +636,8 @@ export default function PatientDashboard() {
                 </div>
                 <button
                   type="submit"
-                  className="rounded-md bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700"
+                  disabled={!bookingForm.requestedDate}
+                  className="w-fit rounded-md bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Request appointment
                 </button>

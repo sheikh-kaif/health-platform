@@ -7,6 +7,12 @@ const User = require("../models/User");
 const AmbulanceRequest = require("../models/AmbulanceRequest");
 const sendEmail = require("../utils/sendEmail");
 const { getIO, patientRoom } = require("../socket");
+const {
+  dateToLocalYMD,
+  isValidDateStr,
+  getAvailability,
+  isBookableSlot,
+} = require("../utils/scheduling");
 
 async function getOwnPatientProfile(req) {
   const patient = await Patient.findOne({ user: req.user._id });
@@ -63,6 +69,58 @@ const listDoctors = asyncHandler(async (req, res) => {
   res.json({ success: true, count: doctors.length, doctors });
 });
 
+// GET /patients/doctors/:doctorId/availability?date=YYYY-MM-DD
+// Returns the doctor's real bookable slots for one day: their working
+// hours broken into slots of their configured duration, with slots
+// already taken by another patient, in the past, or falling in a break
+// marked unavailable. Doctor holidays / non-working days return no slots.
+const getDoctorAvailability = asyncHandler(async (req, res) => {
+  const { doctorId } = req.params;
+  const dateStr = req.query.date;
+
+  if (!dateStr || !isValidDateStr(dateStr)) {
+    res.status(400);
+    throw new Error("A valid date (YYYY-MM-DD) is required");
+  }
+
+  const doctor = await Doctor.findOne({
+    _id: doctorId,
+    verificationStatus: "verified",
+  });
+  if (!doctor) {
+    res.status(404);
+    throw new Error("Doctor not found or not yet verified");
+  }
+
+  const dayStart = new Date(dateStr + "T00:00:00");
+  const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
+
+  const existing = await Appointment.find({
+    doctor: doctor._id,
+    status: { $in: ["pending", "confirmed"] },
+    requestedDate: { $gte: dayStart, $lt: dayEnd },
+  }).select("requestedDate");
+
+  const { slots, slotDurationMinutes, reason } = getAvailability(
+    doctor,
+    dateStr,
+    existing.map((a) => a.requestedDate),
+  );
+
+  res.json({
+    success: true,
+    date: dateStr,
+    slotDurationMinutes,
+    unavailableReason: reason, // "holiday" | "not_working" | null
+    slots: slots.map((s) => ({
+      time: s.start.toISOString(),
+      label: s.label,
+      available: s.available,
+      status: s.status,
+    })),
+  });
+});
+
 const bookAppointment = asyncHandler(async (req, res) => {
   const patient = await getOwnPatientProfile(req);
   const { doctorId, requestedDate, reason } = req.body;
@@ -76,14 +134,61 @@ const bookAppointment = asyncHandler(async (req, res) => {
     throw new Error("Doctor not found or not yet verified");
   }
 
-  const appointment = await Appointment.create({
-    patient: patient._id,
-    doctor: doctor._id,
-    requestedDate,
-    reason,
-  });
+  if (!requestedDate) {
+    res.status(400);
+    throw new Error("Please choose an available appointment slot");
+  }
 
-  res.status(201).json({ success: true, appointment });
+  const slotDate = new Date(requestedDate);
+  if (Number.isNaN(slotDate.getTime())) {
+    res.status(400);
+    throw new Error("Invalid appointment time");
+  }
+  if (slotDate.getTime() < Date.now()) {
+    res.status(400);
+    throw new Error("You can't book a slot in the past");
+  }
+
+  const dateStr = dateToLocalYMD(slotDate);
+  const dayStart = new Date(dateStr + "T00:00:00");
+  const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
+  const existing = await Appointment.find({
+    doctor: doctor._id,
+    status: { $in: ["pending", "confirmed"] },
+    requestedDate: { $gte: dayStart, $lt: dayEnd },
+  }).select("requestedDate");
+
+  const bookable = isBookableSlot(
+    doctor,
+    slotDate,
+    existing.map((a) => a.requestedDate),
+  );
+  if (!bookable) {
+    res.status(409);
+    throw new Error(
+      "That slot isn't available anymore (it may be outside the doctor's hours, on a holiday, or already booked). Please pick another slot.",
+    );
+  }
+
+  try {
+    const appointment = await Appointment.create({
+      patient: patient._id,
+      doctor: doctor._id,
+      requestedDate: slotDate,
+      reason,
+    });
+    res.status(201).json({ success: true, appointment });
+  } catch (err) {
+    // Unique partial index catches the rare race where two requests for
+    // the same slot land at (almost) the same time.
+    if (err.code === 11000) {
+      res.status(409);
+      throw new Error(
+        "Someone just booked that slot. Please pick another one.",
+      );
+    }
+    throw err;
+  }
 });
 
 const getMyAppointments = asyncHandler(async (req, res) => {
@@ -237,6 +342,7 @@ module.exports = {
   getMyRecordById,
   updateMyProfile,
   listDoctors,
+  getDoctorAvailability,
   bookAppointment,
   getMyAppointments,
   cancelMyAppointment,

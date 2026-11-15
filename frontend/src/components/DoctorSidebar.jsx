@@ -28,6 +28,12 @@ const NAV_ITEMS = [
     to: "/doctor?tab=appointments",
   },
   {
+    key: "schedule",
+    label: "My Schedule",
+    icon: IconCalendar,
+    to: "/profile?tab=schedule",
+  },
+  {
     key: "past",
     label: "Past Patients",
     icon: IconHistory,
